@@ -9427,6 +9427,9 @@ body.path-question-type .fitem_fgroup .accesshide {
 }
 #page-mod-quiz-edit .box.generalbox.questionbank {
   padding: 0.5em;
+  overflow-y: scroll;
+  max-height: 40em;
+  max-width: 50em;
 }
 #page-mod-quiz-edit .questionbank .categorypagingbarcontainer,
 #page-mod-quiz-edit .questionbank .categoryquestionscontainer,
@@ -9585,6 +9588,14 @@ a#hidebankcmd {
 body.path-question-type .mform fieldset.hidden {
   padding: 0;
   margin: 0.7em 0 0;
+}
+#page-question-export ul li {
+  list-style-type: none;
+}
+#page-question-export .fstatic {
+  overflow-y: scroll;
+  max-height: 40em;
+  max-width: 50em;
 }
 /* user.less */
 .userprofile .fullprofilelink {

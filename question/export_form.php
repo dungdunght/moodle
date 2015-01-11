@@ -28,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/formslib.php');
 
+require_once($CFG->libdir . '/questionlib.php');
 
 /**
  * Form to export questions from the question bank.
@@ -48,30 +49,27 @@ class question_export_form extends moodleform {
         // Choice of format, with help.
         $mform->addElement('header', 'fileformat', get_string('fileformat', 'question'));
 
-        $fileformatnames = get_import_export_formats('export');
         $radioarray = array();
-        $separators = array();
+        $fileformatnames = get_import_export_formats('export');
+        $i = 0;
         foreach ($fileformatnames as $shortname => $fileformatname) {
-            $radioarray[] = $mform->createElement('radio', 'format', '', $fileformatname, $shortname);
+            $currentgrp1 = array();
+            $currentgrp1[] = $mform->createElement('radio', 'format', '', $fileformatname, $shortname);
+            $mform->addGroup($currentgrp1, "formathelp[{$i}]", '', array('<br />'), false);
 
-            $separator = '';
             if (get_string_manager()->string_exists('pluginname_help', 'qformat_' . $shortname)) {
-                $separator .= $OUTPUT->help_icon('pluginname', 'qformat_' . $shortname);
+                $mform->addHelpButton("formathelp[{$i}]", 'pluginname', 'qformat_' . $shortname);
             }
-            $separator .= '<br>';
-            $separators[] = $separator;
+            $i++;
         }
 
-        $radioarray[] = $mform->createElement('static', 'makelasthelpiconshowup', '');
-        $mform->addGroup($radioarray, "formatchoices", '', $separators, false);
-        $mform->addRule("formatchoices", null, 'required', null, 'client');
+        $mform->addRule("formathelp[0]", null, 'required', null, 'client');
 
         // Export options.
         $mform->addElement('header', 'general', get_string('general', 'form'));
-
-        $mform->addElement('questioncategory', 'category', get_string('exportcategory', 'question'), compact('contexts'));
-        $mform->setDefault('category', $defaultcategory);
-        $mform->addHelpButton('category', 'exportcategory', 'question');
+        $mform->addElement('static', 'catlist', '',
+            $this->get_all_block_categories(question_category_options($contexts), $defaultcategory));
+        $mform->addHelpButton('catlist', 'exportcategory', 'question');
 
         $categorygroup = array();
         $categorygroup[] = $mform->createElement('checkbox', 'cattofile', '', get_string('tofilecategory', 'question'));
@@ -88,5 +86,107 @@ class question_export_form extends moodleform {
 
         // Submit buttons.
         $this->add_action_buttons(false, get_string('exportquestions', 'question'));
+    }
+
+    /**
+     * create html block string for array categories
+     * @param array $contexts, categories
+     * @param string $defaultcategory, defaul category
+     * @return string,  format block html of list categories
+     */
+    public function get_all_block_categories($contexts, $defaultcategory) {
+        $blockoutput = '';
+
+        foreach ($contexts as $key => $categories) {
+            $blockoutput .= html_writer::start_tag('li');
+            $blockoutput .= html_writer::tag('strong', $key);
+            $blockoutput .= html_writer::start_tag('ul');
+            $blockoutput .= $this->block_categories($categories, $defaultcategory);
+            $blockoutput .= html_writer::end_tag('ul');
+            $blockoutput .= html_writer::end_tag('li');
+        }
+
+        global $OUTPUT;
+        $result = '';
+        $result .= $OUTPUT->box_start('boxwidthwide boxaligncenter generalbox questioncategories contextlevel');
+        $result .= $blockoutput;
+        $result .= $OUTPUT->box_end();
+
+        return $result;
+    }
+
+    /**
+     * create html string for array categories
+     * @param array $categories, categories
+     * @param string $defaultcategory, defaul category
+     * @return string, format html of list categories
+     */
+    public function block_categories($categories, $defaultcategory) {
+        $output = '';
+        $ischecking = false;
+        $levelchecking = -1;
+        $levellastparent = -1;
+        $previouscategory = null;
+
+        foreach ($categories as $key => $value) {
+
+            if ($ischecking && substr_count($value, '&nbsp;') <= $levelchecking) {
+                $ischecking = false;
+            }
+
+            if ($key == $defaultcategory) {
+                $levelchecking = substr_count($value, '&nbsp;');
+                $ischecking = true;
+            }
+
+            if (substr_count($value, '&nbsp;') > substr_count($previouscategory, '&nbsp;')) {
+                $output .= html_writer::start_tag('ul');
+                $levellastparent = substr_count($previouscategory, '&nbsp;');
+            } else if (substr_count($value, '&nbsp;') < substr_count( $previouscategory, '&nbsp;')) {
+                $numparent = (substr_count( $previouscategory, '&nbsp;') - substr_count($value, '&nbsp;')) / 3;
+
+                for ($i = 0; $i < $numparent; $i++) {
+                    $output .= html_writer::end_tag('ul');
+                    $output .= html_writer::end_tag('li');
+                }
+
+                $levellastparent = substr_count($value, '&nbsp;');
+            }
+
+            $output .= $this->item_html($value, $ischecking);
+            $previouscategory = $value;
+        }
+
+        $output .= html_writer::end_tag('li');
+        for ($i = 0; $i <= $levellastparent / 3; $i++) {
+            $output .= html_writer::end_tag('ul');
+            $output .= html_writer::end_tag('li');
+        }
+
+        return $output;
+    }
+
+    /**
+     * create html string for item category
+     * @param string $content, category
+     * @param boolean $ischecked, checkbox is checked or not
+     * @return string, format html of item category
+     */
+    public function item_html($content, $ischecked) {
+        $output = '';
+
+        $output .= html_writer::start_tag('li');
+        $output .= html_writer::start_tag('label');
+
+        if ($ischecked) {
+            $output .= html_writer::checkbox('cat', 1, 'true', '');
+        } else {
+            $output .= html_writer::checkbox('cat', 1, '', '');
+        }
+
+        $output .= str_replace('&nbsp;', '', $content);
+        $output .= html_writer::end_tag('label');
+
+        return $output;
     }
 }
