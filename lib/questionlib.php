@@ -1239,8 +1239,11 @@ function question_default_export_filename($course, $category) {
         $shortname = $course->id;
     }
 
-    $categoryname = clean_filename(format_string($category->name));
+    if ($category !== null) {
+        $categoryname = clean_filename(format_string($category->name));
+    } else {
         $categoryname = get_string('severalcategory', 'question');
+    }
 
     return "{$base}-{$shortname}-{$categoryname}-{$timestamp}";
 
@@ -1746,7 +1749,7 @@ function question_pluginfile($course, $context, $component, $filearea, $args, $f
         $contexts = new question_edit_contexts($context);
         // check export capability
         $contexts->require_one_edit_tab_cap('export');
-        $category_id = (int)array_shift($args);
+        $categoryids = explode(',', array_shift($args));
         $format      = array_shift($args);
         $cattofile   = array_shift($args);
         $contexttofile = array_shift($args);
@@ -1763,11 +1766,10 @@ function question_pluginfile($course, $context, $component, $filearea, $args, $f
         }
 
         $qformat = new $classname();
-
-        foreach ($categoryids as $categoryid) {
-            if (!$category = $DB->get_record('question_categories', array('id' => $categoryid))) {
-                send_file_not_found();
-            }
+        if (!$categories = $DB->get_records_list('question_categories', 'id', $categoryids)) {
+            send_file_not_found();
+        }
+        foreach ($categories as $category) {
             $qformat->setCategory($category);
         }
 
@@ -1909,14 +1911,15 @@ function core_question_question_preview_pluginfile($previewcontext, $questionid,
 /**
  * Create url for question export
  *
- * @param int $contextid, current context
- * @param string $categoryids, category ids
- * @param string $format
- * @param string $withcategories
- * @param string $ithcontexts
- * @param moodle_url export file url
+ * @param int $contextid Current context
+ * @param string $categoryids Category ids
+ * @param string $format Format file
+ * @param string $withcategories Categories
+ * @param string $withcontexts Contexts
+ * @param string $filename Name of file
+ * @return moodle_url export file url
  */
-function question_make_export_url($contextid, $categoryid, $format, $withcategories,
+function question_make_export_url($contextid, $categoryids, $format, $withcategories,
         $withcontexts, $filename) {
     global $CFG;
     $urlbase = "$CFG->httpswwwroot/pluginfile.php";

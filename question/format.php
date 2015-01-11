@@ -36,6 +36,7 @@ defined('MOODLE_INTERNAL') || die();
 class qformat_default {
 
     public $displayerrors = true;
+    /** @var array $category List of category. */
     public $category = array();
     public $questions = array();
     public $course = null;
@@ -104,7 +105,7 @@ class qformat_default {
         if (count($this->questions)) {
             debugging('You shouldn\'t call setCategory after setQuestions');
         }
-        $this->category[] = $category;
+        $this->category = $category;
         $this->importcontext = context::instance_by_id($this->category->contextid);
     }
 
@@ -769,7 +770,11 @@ class qformat_default {
         // get the questions (from database) in this category
         // only get q's with no parents (no cloze subquestions specifically)
         if ($this->category) {
-            $questions = get_questions_category($this->category, true);
+            $questions = array();
+            foreach ($this->category as $currentcategory) {
+                $question = get_questions_category($currentcategory, true);
+                $questions = array_merge($questions, $question);
+            }
         } else {
             $questions = $this->questions;
         }
